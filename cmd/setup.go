@@ -9,6 +9,7 @@ import (
 
 	"github.com/fatih/structs"
 	"github.com/gobuffalo/makr"
+	"github.com/markbates/going/randx"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -28,6 +29,7 @@ func init() {
 	setupCmd.Flags().StringVarP(&setup.AppName, "app-name", "a", "", "the name for the heroku app")
 	setupCmd.Flags().StringVarP(&setup.Environment, "environment", "e", "production", "setting for the GO_ENV variable")
 	setupCmd.Flags().StringVarP(&setup.Database, "database", "d", "hobby-dev", "level of postgres database to use. use empty string for no database")
+	setupCmd.Flags().StringVarP(&setup.DynoType, "dyno-type", "t", "hobby", "type of heroku dynos [free, hobby, standard-1x, standard-2x]")
 	setupCmd.Flags().BoolVarP(&setup.SkipAuth, "skip-auth", "s", false, "skip authorization")
 	RootCmd.AddCommand(setupCmd)
 }
@@ -37,6 +39,7 @@ type Setup struct {
 	Environment string
 	Database    string
 	SkipAuth    bool
+	DynoType    string
 }
 
 func (s Setup) Run() error {
@@ -83,9 +86,12 @@ func (s Setup) Run() error {
 	}
 	g.Add(makr.NewCommand(exec.Command("heroku", "create", s.AppName)))
 	g.Add(makr.NewCommand(exec.Command("heroku", "config:set", fmt.Sprintf("GO_ENV=%s", s.Environment))))
+	g.Add(makr.NewCommand(exec.Command("heroku", "config:set", fmt.Sprintf("SESSION_SECRET=%s", randx.String(100)))))
 	if s.Database != "" {
 		g.Add(makr.NewCommand(exec.Command("heroku", "addons:create", fmt.Sprintf("heroku-postgresql:%s", s.Database))))
 	}
 	g.Add(makr.NewCommand(exec.Command("heroku", "container:push", "web")))
+	g.Add(makr.NewCommand(exec.Command("heroku", "dyno:type", s.DynoType)))
+	g.Add(makr.NewCommand(exec.Command("heroku", "open")))
 	return g.Run(".", structs.Map(s))
 }
