@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"github.com/fatih/structs"
 	"github.com/gobuffalo/makr"
@@ -44,6 +45,19 @@ type Setup struct {
 
 func (s Setup) Run() error {
 	g := makr.New()
+	g.Add(makr.Func{
+		Runner: func(root string, data makr.Data) error {
+			c := exec.Command("git", "status")
+			c.Stdin = os.Stdin
+			c.Stderr = os.Stderr
+			c.Stdout = os.Stdout
+			err := c.Run()
+			if err != nil {
+				return errors.Wrap(err, "must be a valid git application")
+			}
+			return nil
+		},
+	})
 	g.Add(makr.Func{
 		Runner: func(root string, data makr.Data) error {
 			if _, err := exec.LookPath("heroku"); err != nil {
@@ -91,6 +105,20 @@ func (s Setup) Run() error {
 		g.Add(makr.NewCommand(exec.Command("heroku", "addons:create", fmt.Sprintf("heroku-postgresql:%s", s.Database))))
 	}
 	g.Add(makr.NewCommand(exec.Command("heroku", "container:push", "web")))
+
+	g.Add(makr.Func{
+		Runner: func(root string, data makr.Data) error {
+			if _, err := os.Stat("./database.yml"); err == nil {
+				c := exec.Command("heroku", "run", "/bin/app", "migrate")
+				fmt.Println(strings.Join(c.Args, " "))
+				c.Stdin = os.Stdin
+				c.Stderr = os.Stderr
+				c.Stdout = os.Stdout
+				return c.Run()
+			}
+			return nil
+		},
+	})
 	g.Add(makr.NewCommand(exec.Command("heroku", "dyno:type", s.DynoType)))
 	g.Add(makr.NewCommand(exec.Command("heroku", "open")))
 	return g.Run(".", structs.Map(s))

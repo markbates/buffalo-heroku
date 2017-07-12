@@ -9,8 +9,8 @@ import (
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   "buffalo-bootstrap",
-	Short: "A collection of tools for using Bootstrap with Buffalo",
+	Use:   "buffalo-heroku",
+	Short: "Tools for deploying Buffalo to Heroku",
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	//	Run: func(cmd *cobra.Command, args []string) { },
