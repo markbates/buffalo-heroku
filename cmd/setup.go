@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
 
 	"github.com/fatih/structs"
 	"github.com/gobuffalo/makr"
@@ -48,51 +47,17 @@ func (s Setup) Run() error {
 	g := makr.New()
 	g.Add(makr.Func{
 		Runner: func(root string, data makr.Data) error {
-			c := exec.Command("git", "status")
-			c.Stdin = os.Stdin
-			c.Stderr = os.Stderr
-			c.Stdout = os.Stdout
-			err := c.Run()
-			if err != nil {
-				return errors.Wrap(err, "must be a valid git application")
-			}
-			return nil
+			return validateGit()
 		},
 	})
 	g.Add(makr.Func{
 		Runner: func(root string, data makr.Data) error {
-			if _, err := exec.LookPath("heroku"); err != nil {
-				if runtime.GOOS == "darwin" {
-					if _, err := exec.LookPath("brew"); err == nil {
-						c := exec.Command("brew", "install", "heroku")
-						c.Stdin = os.Stdin
-						c.Stderr = os.Stderr
-						c.Stdout = os.Stdout
-						return c.Run()
-					}
-				}
-				return errors.New("heroku cli is not installed. https://devcenter.heroku.com/articles/heroku-cli")
-			}
-			fmt.Println("--> heroku cli is installed")
-			return nil
+			return installHerokuCLI()
 		},
 	})
 	g.Add(makr.Func{
 		Runner: func(root string, data makr.Data) error {
-			c := exec.Command("heroku", "plugins")
-			b, err := c.CombinedOutput()
-			if err != nil {
-				return errors.WithStack(err)
-			}
-			if !bytes.Contains(b, []byte("heroku-container-registry")) {
-				c := exec.Command("heroku", "plugins:install", "heroku-container-registry")
-				c.Stdin = os.Stdin
-				c.Stderr = os.Stderr
-				c.Stdout = os.Stdout
-				return c.Run()
-			}
-			fmt.Println("--> heroku-container-registry plugin is installed")
-			return nil
+			return installContainerPlugin()
 		},
 	})
 	if !s.SkipAuth {
@@ -102,25 +67,55 @@ func (s Setup) Run() error {
 	g.Add(makr.NewCommand(exec.Command("heroku", "create", s.AppName)))
 	g.Add(makr.NewCommand(exec.Command("heroku", "config:set", fmt.Sprintf("GO_ENV=%s", s.Environment))))
 	g.Add(makr.NewCommand(exec.Command("heroku", "config:set", fmt.Sprintf("SESSION_SECRET=%s", randx.String(100)))))
+	g.Add(makr.Func{
+		Runner: func(root string, data makr.Data) error {
+			return initializeHostVar()
+		},
+	})
 	if s.Database != "" {
 		g.Add(makr.NewCommand(exec.Command("heroku", "addons:create", fmt.Sprintf("heroku-postgresql:%s", s.Database))))
 	}
-	g.Add(makr.NewCommand(exec.Command("heroku", "container:push", "web")))
-
 	g.Add(makr.Func{
 		Runner: func(root string, data makr.Data) error {
-			if _, err := os.Stat("./database.yml"); err == nil {
-				c := exec.Command("heroku", "run", "/bin/app", "migrate")
-				fmt.Println(strings.Join(c.Args, " "))
+			return pushContainer()
+		},
+	})
+
+	g.Add(makr.NewCommand(exec.Command("heroku", "dyno:type", s.DynoType)))
+	g.Add(makr.NewCommand(exec.Command("heroku", "open")))
+	return g.Run(".", structs.Map(s))
+}
+
+func installHerokuCLI() error {
+	if _, err := exec.LookPath("heroku"); err != nil {
+		if runtime.GOOS == "darwin" {
+			if _, err := exec.LookPath("brew"); err == nil {
+				c := exec.Command("brew", "install", "heroku")
 				c.Stdin = os.Stdin
 				c.Stderr = os.Stderr
 				c.Stdout = os.Stdout
 				return c.Run()
 			}
-			return nil
-		},
-	})
-	g.Add(makr.NewCommand(exec.Command("heroku", "dyno:type", s.DynoType)))
-	g.Add(makr.NewCommand(exec.Command("heroku", "open")))
-	return g.Run(".", structs.Map(s))
+		}
+		return errors.New("heroku cli is not installed. https://devcenter.heroku.com/articles/heroku-cli")
+	}
+	fmt.Println("--> heroku cli is installed")
+	return nil
+}
+
+func installContainerPlugin() error {
+	c := exec.Command("heroku", "plugins")
+	b, err := c.CombinedOutput()
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	if !bytes.Contains(b, []byte("heroku-container-registry")) {
+		c := exec.Command("heroku", "plugins:install", "heroku-container-registry")
+		c.Stdin = os.Stdin
+		c.Stderr = os.Stderr
+		c.Stdout = os.Stdout
+		return c.Run()
+	}
+	fmt.Println("--> heroku-container-registry plugin is installed")
+	return nil
 }
