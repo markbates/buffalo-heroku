@@ -17,8 +17,9 @@ import (
 
 // availableCmd represents the available command
 var setupCmd = &cobra.Command{
-	Use:   "heroku",
-	Short: "setup heroku for deploying with docker",
+	Use:     "setup",
+	Aliases: []string{"s"},
+	Short:   "setup heroku for deploying with docker",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return setup.Run()
 	},
@@ -32,7 +33,7 @@ func init() {
 	setupCmd.Flags().StringVarP(&setup.Database, "database", "d", "hobby-dev", "level of postgres database to use. use empty string for no database")
 	setupCmd.Flags().StringVarP(&setup.DynoType, "dyno-type", "t", "hobby", "type of heroku dynos [free, hobby, standard-1x, standard-2x]")
 	setupCmd.Flags().BoolVarP(&setup.SkipAuth, "skip-auth", "s", false, "skip authorization")
-	RootCmd.AddCommand(setupCmd)
+	herokuCmd.AddCommand(setupCmd)
 }
 
 type Setup struct {

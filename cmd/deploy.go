@@ -11,8 +11,9 @@ import (
 )
 
 var deployCmd = &cobra.Command{
-	Use:   "deploy",
-	Short: "deploy to heroku using docker",
+	Use:     "deploy",
+	Aliases: []string{"d"},
+	Short:   "deploy to heroku using docker",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c := exec.Command("heroku", "container:push", "web")
 		fmt.Println(strings.Join(c.Args, " "))
@@ -37,5 +38,5 @@ var deployCmd = &cobra.Command{
 }
 
 func init() {
-	RootCmd.AddCommand(deployCmd)
+	herokuCmd.AddCommand(deployCmd)
 }
