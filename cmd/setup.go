@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"github.com/fatih/structs"
 	"github.com/gobuffalo/makr"
@@ -30,17 +31,21 @@ func init() {
 	setupCmd.Flags().StringVarP(&setup.AppName, "app-name", "a", "", "the name for the heroku app")
 	setupCmd.Flags().StringVarP(&setup.Environment, "environment", "e", "production", "setting for the GO_ENV variable")
 	setupCmd.Flags().StringVarP(&setup.Database, "database", "d", "hobby-dev", "level of postgres database to use. use empty string for no database")
+	setupCmd.Flags().StringVar(&setup.EmailProvider, "email", "sendgrid:starter", "email provider to use. use empty string for no database")
+	setupCmd.Flags().StringVar(&setup.RedisProvider, "redis", "heroku-redis:hobby-dev", "redis provider to use. use empty string for no database")
 	setupCmd.Flags().StringVarP(&setup.DynoType, "dyno-type", "t", "hobby", "type of heroku dynos [free, hobby, standard-1x, standard-2x]")
 	setupCmd.Flags().BoolVarP(&setup.SkipAuth, "skip-auth", "s", false, "skip authorization")
 	herokuCmd.AddCommand(setupCmd)
 }
 
 type Setup struct {
-	AppName     string
-	Environment string
-	Database    string
-	SkipAuth    bool
-	DynoType    string
+	AppName       string
+	Environment   string
+	Database      string
+	SkipAuth      bool
+	DynoType      string
+	EmailProvider string
+	RedisProvider string
 }
 
 func (s Setup) Run() error {
@@ -75,6 +80,19 @@ func (s Setup) Run() error {
 	if s.Database != "" {
 		g.Add(makr.NewCommand(exec.Command("heroku", "addons:create", fmt.Sprintf("heroku-postgresql:%s", s.Database))))
 	}
+	if s.EmailProvider != "" {
+		g.Add(makr.NewCommand(exec.Command("heroku", "addons:create", s.EmailProvider)))
+		if strings.Contains(s.EmailProvider, "sendgrid") {
+			g.Add(makr.Func{
+				Runner: func(root string, data makr.Data) error {
+					return setupSendgrid()
+				},
+			})
+		}
+	}
+	if s.RedisProvider != "" {
+		g.Add(makr.NewCommand(exec.Command("heroku", "addons:create", s.RedisProvider)))
+	}
 	g.Add(makr.Func{
 		Runner: func(root string, data makr.Data) error {
 			return pushContainer()
@@ -82,8 +100,48 @@ func (s Setup) Run() error {
 	})
 
 	g.Add(makr.NewCommand(exec.Command("heroku", "dyno:type", s.DynoType)))
+	g.Add(makr.NewCommand(exec.Command("heroku", "config")))
 	g.Add(makr.NewCommand(exec.Command("heroku", "open")))
 	return g.Run(".", structs.Map(s))
+}
+
+func setupSendgrid() error {
+	cmd := exec.Command("heroku", "config:set", "SMTP_HOST=smtp.sendgrid.net", "SMTP_PORT=465")
+	b, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Print(string(b))
+		return errors.WithStack(err)
+	}
+
+	cmd = exec.Command("heroku", "config:get", "SENDGRID_USERNAME")
+	b, err = cmd.CombinedOutput()
+	if err != nil {
+		fmt.Print(string(b))
+		return errors.WithStack(err)
+	}
+
+	cmd = exec.Command("heroku", "config:set", fmt.Sprintf("SMTP_USER=%s", strings.TrimSpace(string(b))))
+	b, err = cmd.CombinedOutput()
+	if err != nil {
+		fmt.Print(string(b))
+		return errors.WithStack(err)
+	}
+
+	cmd = exec.Command("heroku", "config:get", "SENDGRID_PASSWORD")
+	b, err = cmd.CombinedOutput()
+	if err != nil {
+		fmt.Print(string(b))
+		return errors.WithStack(err)
+	}
+
+	cmd = exec.Command("heroku", "config:set", fmt.Sprintf("SMTP_PASSWORD=%s", strings.TrimSpace(string(b))))
+	b, err = cmd.CombinedOutput()
+	if err != nil {
+		fmt.Print(string(b))
+		return errors.WithStack(err)
+	}
+
+	return nil
 }
 
 func installHerokuCLI() error {
