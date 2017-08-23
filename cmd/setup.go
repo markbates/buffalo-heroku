@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/AlecAivazis/survey"
 	"github.com/fatih/structs"
 	"github.com/gobuffalo/makr"
 	"github.com/markbates/going/randx"
@@ -25,21 +26,80 @@ var setupCmd = &cobra.Command{
 			setup.DynoType = "free"
 			setup.Database = "hobby-dev"
 		}
+		if setup.Interactive {
+			err := Interactive()
+			if err != nil {
+				return errors.WithStack(err)
+			}
+		}
 		return setup.Run()
 	},
 }
 
+func Interactive() error {
+	qs := []*survey.Question{
+		{
+			Name: "AppName",
+			Prompt: &survey.Input{
+				Message: "What would you like to name this app on Heroku?",
+				Help:    "A blank response will let Heroku generate a name.",
+			},
+		},
+		{
+			Name: "DynoType",
+			Prompt: &survey.Select{
+				Message: "Choose a dyno level.",
+				Options: dynoLevels,
+				Default: setup.DynoType,
+			},
+		},
+		{
+			Name: "Database",
+			Prompt: &survey.Select{
+				Message: "Choose a PostgreSQL database level.",
+				Options: pgLevels,
+				Default: setup.Database,
+			},
+		},
+		{
+			Name: "EmailProvider",
+			Prompt: &survey.Select{
+				Message: "Choose an Email provider level.",
+				Options: []string{"none", "sendgrid:starter"},
+				Default: "none",
+			},
+		},
+		{
+			Name: "RedisProvider",
+			Prompt: &survey.Select{
+				Message: "Choose a Redis provider level.",
+				Options: []string{"none", "heroku-redis:hobby-dev"},
+				Default: "none",
+			},
+		},
+	}
+	err := survey.Ask(qs, &setup)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	return nil
+}
+
+var dynoLevels = []string{"free", "hobby", "standard-1x", "standard-2x"}
+var pgLevels = []string{"hobby-dev", "hobby-basic", "standard-0"}
 var setup = Setup{}
 
 func init() {
 	setupCmd.Flags().StringVarP(&setup.AppName, "app-name", "a", "", "the name for the heroku app")
 	setupCmd.Flags().StringVarP(&setup.Environment, "environment", "e", "production", "setting for the GO_ENV variable")
-	setupCmd.Flags().StringVarP(&setup.Database, "database", "d", "hobby-basic", "level of postgres database to use. use empty string for no database [hobby-dev, hobby-basic, standard-0]")
+	setupCmd.Flags().StringVarP(&setup.Database, "database", "d", "hobby-basic", fmt.Sprintf("level of postgres database to use. use empty string for no database %s", pgLevels))
 	setupCmd.Flags().StringVar(&setup.EmailProvider, "email", "sendgrid:starter", "email provider to use. use empty string for no database")
 	setupCmd.Flags().StringVar(&setup.RedisProvider, "redis", "heroku-redis:hobby-dev", "redis provider to use. use empty string for no database")
-	setupCmd.Flags().StringVarP(&setup.DynoType, "dyno-type", "t", "hobby", "type of heroku dynos [free, hobby, standard-1x, standard-2x]")
+	setupCmd.Flags().StringVarP(&setup.DynoType, "dyno-type", "t", "hobby", fmt.Sprintf("type of heroku dynos %s", dynoLevels))
 	setupCmd.Flags().BoolVar(&setup.Auth, "auth", false, "perform authorization")
 	setupCmd.Flags().BoolVarP(&setup.Free, "free", "f", false, "use only free resources")
+	setupCmd.Flags().BoolVarP(&setup.Interactive, "interactive", "i", false, "use the interactive mode")
 	herokuCmd.AddCommand(setupCmd)
 }
 
@@ -52,6 +112,7 @@ type Setup struct {
 	EmailProvider string
 	RedisProvider string
 	Free          bool
+	Interactive   bool
 }
 
 func (s Setup) Run() error {
@@ -86,7 +147,7 @@ func (s Setup) Run() error {
 	if s.Database != "" {
 		g.Add(makr.NewCommand(exec.Command("heroku", "addons:create", fmt.Sprintf("heroku-postgresql:%s", s.Database))))
 	}
-	if s.EmailProvider != "" {
+	if s.EmailProvider != "" && s.EmailProvider != "none" {
 		g.Add(makr.NewCommand(exec.Command("heroku", "addons:create", s.EmailProvider)))
 		if strings.Contains(s.EmailProvider, "sendgrid") {
 			g.Add(makr.Func{
@@ -96,7 +157,7 @@ func (s Setup) Run() error {
 			})
 		}
 	}
-	if s.RedisProvider != "" {
+	if s.RedisProvider != "" && s.RedisProvider != "none" {
 		g.Add(makr.NewCommand(exec.Command("heroku", "addons:create", s.RedisProvider)))
 	}
 	g.Add(makr.Func{
