@@ -8,12 +8,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/AlecAivazis/survey"
 	"github.com/fatih/structs"
 	"github.com/gobuffalo/makr"
 	"github.com/markbates/going/randx"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 // availableCmd represents the available command
