@@ -208,6 +208,13 @@ func setupSendgrid() error {
 		return errors.WithStack(err)
 	}
 
+	cmd = exec.Command("heroku", "config:set", "SMTP_PORT=25")
+	b, err = cmd.CombinedOutput()
+	if err != nil {
+		fmt.Print(string(b))
+		return errors.WithStack(err)
+	}
+
 	return nil
 }
 
