@@ -162,7 +162,7 @@ func (s Setup) Run() error {
 	}
 	g.Add(makr.Func{
 		Runner: func(root string, data makr.Data) error {
-			return pushContainer()
+			return deployContainer()
 		},
 	})
 
