@@ -23,9 +23,11 @@ func deployContainer() error {
 	if err := pushContainer(); err != nil {
 		return errors.WithStack(err)
 	}
+
 	if err := releaseContainer(); err != nil {
 		return errors.WithStack(err)
 	}
+
 	return runMigrations()
 }
 
@@ -48,7 +50,8 @@ func releaseContainer() error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	return runMigrations()
+
+	return nil
 }
 func init() {
 	herokuCmd.AddCommand(deployCmd)

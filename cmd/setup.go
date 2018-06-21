@@ -103,6 +103,7 @@ func init() {
 	herokuCmd.AddCommand(setupCmd)
 }
 
+//Setup holds the settings to setup the app
 type Setup struct {
 	AppName       string
 	Environment   string
@@ -115,6 +116,7 @@ type Setup struct {
 	Interactive   bool
 }
 
+//Run runs setup steps
 func (s Setup) Run() error {
 	g := makr.New()
 	g.Add(makr.Func{
