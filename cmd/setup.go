@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -129,11 +128,7 @@ func (s Setup) Run() error {
 			return installHerokuCLI()
 		},
 	})
-	g.Add(makr.Func{
-		Runner: func(root string, data makr.Data) error {
-			return installContainerPlugin()
-		},
-	})
+
 	if s.Auth {
 		g.Add(makr.NewCommand(exec.Command("heroku", "login")))
 		g.Add(makr.NewCommand(exec.Command("heroku", "container:login")))
@@ -233,23 +228,7 @@ func installHerokuCLI() error {
 		}
 		return errors.New("heroku cli is not installed. https://devcenter.heroku.com/articles/heroku-cli")
 	}
-	fmt.Println("--> heroku cli is installed")
-	return nil
-}
 
-func installContainerPlugin() error {
-	c := exec.Command("heroku", "plugins")
-	b, err := c.CombinedOutput()
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	if !bytes.Contains(b, []byte("heroku-container-registry")) {
-		c := exec.Command("heroku", "plugins:install", "heroku-container-registry")
-		c.Stdin = os.Stdin
-		c.Stderr = os.Stderr
-		c.Stdout = os.Stdout
-		return c.Run()
-	}
-	fmt.Println("--> heroku-container-registry plugin is installed")
+	fmt.Println("--> heroku cli is installed")
 	return nil
 }
