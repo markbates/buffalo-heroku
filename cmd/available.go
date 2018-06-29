@@ -15,6 +15,7 @@ var availableCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		plugs := plugins.Commands{
 			{Name: herokuCmd.Use, BuffaloCommand: "root", Description: herokuCmd.Short, Aliases: []string{"h"}},
+			{Name: generateCmd.Use, BuffaloCommand: "generate", Description: generateCmd.Short, Aliases: generateCmd.Aliases},
 		}
 		return json.NewEncoder(os.Stdout).Encode(plugs)
 	},
