@@ -34,7 +34,7 @@ func WriteHerokuYml() error {
 	if bytes.Contains(b, []byte("RUN apk add --no-cache curl")) {
 		return nil
 	}
-	b = bytes.Replace(b, []byte("FROM alpine\n"), []byte("FROM alpine\nRUN apk add --no-cache curl"), 1)
+	b = bytes.Replace(b, []byte("FROM alpine\n"), []byte("FROM alpine\nRUN apk add --no-cache curl\n"), 1)
 	f, err = os.Create("Dockerfile")
 	if err != nil {
 		return errors.WithStack(err)
