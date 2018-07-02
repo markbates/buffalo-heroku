@@ -42,18 +42,14 @@ func pushHerokuYml() error {
 		c.Stdin = os.Stdin
 		c.Stderr = os.Stderr
 		c.Stdout = os.Stdout
-		if err := c.Run(); err != nil {
-			fmt.Println(err)
-		}
+		c.Run()
 	}
 	c := exec.Command("git", "commit", "-m", "files for buffalo-heroku")
 	fmt.Println(strings.Join(c.Args, " "))
 	c.Stdin = os.Stdin
 	c.Stderr = os.Stderr
 	c.Stdout = os.Stdout
-	if err := c.Run(); err != nil {
-		fmt.Println(err)
-	}
+	c.Run()
 
 	c = exec.Command("git", "push", "heroku", "master")
 	fmt.Println(strings.Join(c.Args, " "))
