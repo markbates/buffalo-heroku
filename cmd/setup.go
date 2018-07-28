@@ -131,9 +131,9 @@ func (s Setup) Run() error {
 
 	if s.Auth {
 		g.Add(makr.NewCommand(exec.Command("heroku", "login")))
-		g.Add(makr.NewCommand(exec.Command("heroku", "container:login")))
 	}
-	g.Add(makr.NewCommand(exec.Command("heroku", "create", s.AppName)))
+	g.Add(makr.NewCommand(exec.Command("heroku", "create", s.AppName, "--manifest")))
+	g.Add(makr.NewCommand(exec.Command("heroku", "stack:set", "container")))
 	g.Add(makr.NewCommand(exec.Command("heroku", "config:set", fmt.Sprintf("GO_ENV=%s", s.Environment))))
 	g.Add(makr.NewCommand(exec.Command("heroku", "config:set", fmt.Sprintf("SESSION_SECRET=%s", randx.String(100)))))
 	g.Add(makr.Func{
@@ -170,7 +170,7 @@ func (s Setup) Run() error {
 }
 
 func setupSendgrid() error {
-	cmd := exec.Command("heroku", "config:set", "SMTP_HOST=smtp.sendgrid.net", "SMTP_PORT=465")
+	cmd := exec.Command("heroku", "config:set", "SMTP_HOST=smtp.sendgrid.net")
 	b, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Print(string(b))
@@ -230,5 +230,26 @@ func installHerokuCLI() error {
 	}
 
 	fmt.Println("--> heroku cli is installed")
+
+	if _, err := os.Stat("heroku.yml"); err != nil {
+		if err := WriteHerokuYml(); err != nil {
+			return errors.WithStack(err)
+		}
+		c := exec.Command("heroku", "update", "beta")
+		c.Stdin = os.Stdin
+		c.Stderr = os.Stderr
+		c.Stdout = os.Stdout
+		if err := c.Run(); err != nil {
+			return errors.WithStack(err)
+		}
+
+		c = exec.Command("heroku", "plugins:install", "@heroku-cli/plugin-manifest")
+		c.Stdin = os.Stdin
+		c.Stderr = os.Stderr
+		c.Stdout = os.Stdout
+		if err := c.Run(); err != nil {
+			return errors.WithStack(err)
+		}
+	}
 	return nil
 }

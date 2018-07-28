@@ -20,6 +20,10 @@ var deployCmd = &cobra.Command{
 }
 
 func deployContainer() error {
+	if _, err := os.Stat("heroku.yml"); err == nil {
+		fmt.Println("found a heroku.yml file; deploying with that")
+		return pushHerokuYml()
+	}
 	if err := pushContainer(); err != nil {
 		return errors.WithStack(err)
 	}
@@ -29,6 +33,30 @@ func deployContainer() error {
 	}
 
 	return runMigrations()
+}
+
+func pushHerokuYml() error {
+	for _, f := range []string{"Dockerfile", "heroku.yml"} {
+		c := exec.Command("git", "add", f)
+		fmt.Println(strings.Join(c.Args, " "))
+		c.Stdin = os.Stdin
+		c.Stderr = os.Stderr
+		c.Stdout = os.Stdout
+		c.Run()
+	}
+	c := exec.Command("git", "commit", "-m", "files for buffalo-heroku")
+	fmt.Println(strings.Join(c.Args, " "))
+	c.Stdin = os.Stdin
+	c.Stderr = os.Stderr
+	c.Stdout = os.Stdout
+	c.Run()
+
+	c = exec.Command("git", "push", "heroku", "master")
+	fmt.Println(strings.Join(c.Args, " "))
+	c.Stdin = os.Stdin
+	c.Stderr = os.Stderr
+	c.Stdout = os.Stdout
+	return c.Run()
 }
 
 func pushContainer() error {
