@@ -135,6 +135,7 @@ func (s Setup) Run() error {
 	}
 	g.Add(makr.NewCommand(exec.Command("heroku", "create", s.AppName)))
 	g.Add(makr.NewCommand(exec.Command("heroku", "config:set", fmt.Sprintf("GO_ENV=%s", s.Environment))))
+	g.Add(makr.NewCommand(exec.Command("heroku", "config:set", fmt.Sprintf("HOST=%s", s.Host))))
 	g.Add(makr.NewCommand(exec.Command("heroku", "config:set", fmt.Sprintf("SESSION_SECRET=%s", randx.String(100)))))
 	g.Add(makr.Func{
 		Runner: func(root string, data makr.Data) error {
