@@ -76,6 +76,14 @@ func Interactive() error {
 				Default: "none",
 			},
 		},
+		{
+			Name: "Region",
+			Prompt: &survey.Select{
+				Message: "Set heroku region for deployment",
+				Options: []string{"us", "eu"},
+				Default: "us",
+			},
+		},
 	}
 	err := survey.Ask(qs, &setup)
 	if err != nil {
@@ -96,6 +104,7 @@ func init() {
 	setupCmd.Flags().StringVar(&setup.EmailProvider, "email", "sendgrid:starter", "email provider to use. use empty string for no database")
 	setupCmd.Flags().StringVar(&setup.RedisProvider, "redis", "heroku-redis:hobby-dev", "redis provider to use. use empty string for no database")
 	setupCmd.Flags().StringVarP(&setup.DynoType, "dyno-type", "t", "hobby", fmt.Sprintf("type of heroku dynos %s", dynoLevels))
+	setupCmd.Flags().StringVarP(&setup.Region, "region", "r", "us", fmt.Sprintf("heroku region for deployment"))
 	setupCmd.Flags().BoolVar(&setup.Auth, "auth", false, "perform authorization")
 	setupCmd.Flags().BoolVarP(&setup.Free, "free", "f", false, "use only free resources")
 	setupCmd.Flags().BoolVarP(&setup.Interactive, "interactive", "i", false, "use the interactive mode")
@@ -113,6 +122,7 @@ type Setup struct {
 	RedisProvider string
 	Free          bool
 	Interactive   bool
+	Region        string
 }
 
 //Run runs setup steps
@@ -133,7 +143,11 @@ func (s Setup) Run() error {
 		g.Add(makr.NewCommand(exec.Command("heroku", "login")))
 		g.Add(makr.NewCommand(exec.Command("heroku", "container:login")))
 	}
-	g.Add(makr.NewCommand(exec.Command("heroku", "create", s.AppName)))
+	var region = "us"
+	if s.Region {
+		region = s.Region
+	}
+	g.Add(makr.NewCommand(exec.Command("heroku", "create", s.AppName, fmt.Sprintf("--region=%s"), region)))
 	g.Add(makr.NewCommand(exec.Command("heroku", "config:set", fmt.Sprintf("GO_ENV=%s", s.Environment))))
 	g.Add(makr.NewCommand(exec.Command("heroku", "config:set", fmt.Sprintf("SESSION_SECRET=%s", randx.String(100)))))
 	g.Add(makr.Func{
